@@ -48,9 +48,61 @@ class ShowArticle(Resource):
 
         return {'message': 'Maximum pageview limit reached'}, 401
 
+# Class: Login
+class Login(Resource): 
+    def post(self): 
+        # get username: request JSON
+        data = request.get_json()
+        print("DEBUG: Received payload from frontend ->", data)
+
+        username = data.get('username') or list(data.values())[0]
+
+        # find user: db by username 
+        user = User.query.filter(User.username == username).first()
+
+        if user: 
+            # set session['user_id']: found user's ID
+            session['user_id'] = user.id
+
+            # return user: JSON & 200 status code 
+            user_json = UserSchema().dump(user)
+            return make_response(user_json, 200)
+
+        print(f"DEBUG: Could not find user '{username}' in the database.")
+        return {'error': 'Unauthorized'}, 401
+
+# Class: Logout 
+class Logout(Resource): 
+    def delete(self): 
+        # remove value: session['user_id']
+        session['user_id'] = None
+
+        # return: no data & 204 (No Content) status code
+        return {}, 204
+
+# Class: Check Session 
+class CheckSession(Resource): 
+    def get(self): 
+        # Get current value: session['user_id']
+        user_id = session.get('user_id')
+
+        # Check: session has user_id
+        if user_id: 
+            user = User.query.filter(User.id == user_id).first()
+            if user: 
+                user_json = UserSchema().dump(user)
+                return make_response(user_json, 200)
+        # session has no user_id OR user not found 
+        return {}, 401
+
 api.add_resource(ClearSession, '/clear')
 api.add_resource(IndexArticle, '/articles')
 api.add_resource(ShowArticle, '/articles/<int:id>')
+
+# routes: authentication steps
+api.add_resource(Login, '/login')
+api.add_resource(Logout, '/logout')
+api.add_resource(CheckSession, '/check_session')
 
 if __name__ == '__main__':
     app.run(port=5555, debug=True)
